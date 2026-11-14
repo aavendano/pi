@@ -154,32 +154,27 @@ module "pi" {
   agent_id = coder_agent.main.id
   workdir  = "/home/${local.linux_user}/${module.git-clone[count.index].folder_name}"
 
-  # Node 22 + jq (requisitos del módulo) antes del npm install.
-  # Espera locks de apt: startup_script / open-webui también usan apt en paralelo.
+  # Node 22 + jq antes del npm install del módulo.
+  # Node vía tarball (sin apt) para no competir con startup_script/open-webui.
   pre_install_script = <<-EOT
     #!/usr/bin/env bash
     set -euo pipefail
     export DEBIAN_FRONTEND=noninteractive
-    wait_apt() {
-      local i=0
-      while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 \
-        || sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 \
-        || sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
-        sleep 2
-        i=$((i + 1))
-        [ "$i" -lt 180 ] || { echo "Timed out waiting for apt locks"; exit 1; }
-      done
-    }
     if ! command -v node >/dev/null || [ "$(node -v | sed 's/v//' | cut -d. -f1)" -lt 22 ]; then
-      wait_apt
-      curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-      wait_apt
-      sudo apt-get install -y -qq nodejs
+      NODE_VER=v22.21.0
+      curl -fsSL "https://nodejs.org/dist/$${NODE_VER}/node-$${NODE_VER}-linux-x64.tar.xz" \
+        | sudo tar -xJ -C /usr/local --strip-components=1
+      hash -r || true
     fi
+    node -v
+    npm -v
     if ! command -v jq >/dev/null; then
-      wait_apt
-      sudo apt-get install -y -qq jq
+      # jq estático: evita apt mientras Python/Open WebUI tienen el lock.
+      curl -fsSL -o /tmp/jq https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64
+      sudo install -m 0755 /tmp/jq /usr/local/bin/jq
+      rm -f /tmp/jq
     fi
+    jq --version
   EOT
 
   # Tras el install del módulo (escribe defaultProjectTrust), fijar Mistral.
