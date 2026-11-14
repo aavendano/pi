@@ -1,5 +1,6 @@
 import type { OpenAICompletionsCompat, ThinkingLevelMap } from "../../src/types.ts";
 import { defineProvider, modelsDevModels } from "../define.ts";
+import { isKimiK3FamilyId, KIMI_K3_MAX_TOKENS } from "../families/kimi.ts";
 
 const BASE_COMPAT: OpenAICompletionsCompat = {
 	supportsStore: false,
@@ -35,6 +36,13 @@ export default defineProvider({
 			baseUrl: "https://api.together.ai/v1",
 			skipDeprecated: true,
 			map: (model) => {
+				// Keep Kimi K3's canonical output limit when models.dev reports the 1M context as maxTokens.
+				const idSuffix = model.id.startsWith("moonshotai/")
+					? model.id.slice("moonshotai/".length).toLowerCase()
+					: "";
+				if (isKimiK3FamilyId(idSuffix)) {
+					model = { ...model, maxTokens: KIMI_K3_MAX_TOKENS };
+				}
 				if (!model.reasoning) return { ...model, compat: BASE_COMPAT };
 				if (REASONING_EFFORT_MODELS.has(model.id)) {
 					return { ...model, compat: REASONING_EFFORT_COMPAT, thinkingLevelMap: { ...REASONING_EFFORT_LEVELS } };
