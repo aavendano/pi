@@ -39,6 +39,10 @@ if [ -z "$PYTHON_CMD" ]; then
 fi
 
 VENV_DIR="$HOME/.open-webui-venv"
+if [ -d "$VENV_DIR" ] && ! "$VENV_DIR/bin/python" -c 'import sys; raise SystemExit(0 if (3, 11) <= sys.version_info[:2] <= (3, 12) else 1)' 2>/dev/null; then
+  echo "Removing incompatible virtual environment..."
+  rm -rf "$VENV_DIR"
+fi
 if [ ! -d "$VENV_DIR" ]; then
   echo "📦 Creating virtual environment..."
   "$PYTHON_CMD" -m venv "$VENV_DIR"

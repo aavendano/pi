@@ -29,16 +29,20 @@ for cmd in python3.12 python3.11; do
 done
 
 if [ -z "$PYTHON_CMD" ]; then
-  echo "❌ Python 3.11 or higher is required but not found."
+  echo "❌ Python 3.11 or 3.12 is required but not found."
   echo ""
-  echo "Please install Python 3.11+ in your image. For example on Ubuntu/Debian:"
+  echo "Please install Python 3.12 in your image. For example on Ubuntu/Debian:"
   echo "  sudo add-apt-repository -y ppa:deadsnakes/ppa"
   echo "  sudo apt-get update"
-  echo "  sudo apt-get install -y python3.11 python3.11-venv"
+  echo "  sudo apt-get install -y python3.12 python3.12-venv"
   exit 1
 fi
 
 VENV_DIR="$HOME/.open-webui-venv"
+if [ -d "$VENV_DIR" ] && ! "$VENV_DIR/bin/python" -c 'import sys; raise SystemExit(0 if (3, 11) <= sys.version_info[:2] <= (3, 12) else 1)' 2>/dev/null; then
+  echo "Removing incompatible virtual environment..."
+  rm -rf "$VENV_DIR"
+fi
 if [ ! -d "$VENV_DIR" ]; then
   echo "📦 Creating virtual environment..."
   "$PYTHON_CMD" -m venv "$VENV_DIR"
