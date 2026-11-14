@@ -49,6 +49,15 @@ resource "coder_agent" "main" {
     if [ ! -f ~/.ssh/known_hosts ] || ! grep -q github.com ~/.ssh/known_hosts; then
       ssh-keyscan -t ed25519,rsa github.com >> ~/.ssh/known_hosts 2>/dev/null || true
     fi
+
+    # Open WebUI (vendored module) requires Python 3.11+ with venv.
+    if ! command -v python3.11 >/dev/null 2>&1 && ! python3 -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3,11) else 1)' 2>/dev/null; then
+      sudo apt-get update -qq
+      sudo apt-get install -y -qq software-properties-common
+      sudo add-apt-repository -y ppa:deadsnakes/ppa
+      sudo apt-get update -qq
+      sudo apt-get install -y -qq python3.11 python3.11-venv
+    fi
   EOT
 
   metadata {
@@ -153,6 +162,18 @@ module "mcp_servers" {
   github_auth = {
     mode = "none"
   }
+}
+
+# Vendored coder-labs/open-webui (path-based; registry hardcodes subdomain=true).
+module "open-webui" {
+  count    = data.coder_workspace.me.start_count
+  source   = "./modules/open-webui"
+  agent_id = coder_agent.main.id
+
+  order     = 3
+  share     = "owner"
+  subdomain = false
+  # openai_api_key vacío: configurar providers en la UI
 }
 
 resource "docker_volume" "home_volume" {
