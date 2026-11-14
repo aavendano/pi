@@ -230,7 +230,7 @@ module "mcp_servers" {
 
 # Vendored from coder-labs/open-webui v1.0.0 (see modules/open-webui).
 # Inlined at template root so Coder MCP tar upload works (no nested dirs).
-# Path-based: subdomain=false (registry hardcodes true).
+# subdomain=true: Open WebUI hardcodes /_app assets at site root (no subpath support).
 resource "coder_script" "open_webui" {
   count        = data.coder_workspace.me.start_count
   agent_id     = coder_agent.main.id
@@ -253,7 +253,7 @@ resource "coder_app" "open_webui" {
   display_name = "Open WebUI"
   url          = "http://localhost:7800"
   icon         = "/icon/openwebui.svg"
-  subdomain    = false
+  subdomain    = true
   share        = "owner"
   order        = 3
 }
