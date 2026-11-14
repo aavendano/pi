@@ -51,13 +51,6 @@ resource "coder_agent" "main" {
     fi
   EOT
 
-  env = {
-    GIT_AUTHOR_NAME     = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
-    GIT_AUTHOR_EMAIL    = "${data.coder_workspace_owner.me.email}"
-    GIT_COMMITTER_NAME  = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
-    GIT_COMMITTER_EMAIL = "${data.coder_workspace_owner.me.email}"
-  }
-
   metadata {
     display_name = "CPU Usage"
     key          = "0_cpu_usage"
@@ -81,6 +74,22 @@ resource "coder_agent" "main" {
     interval     = 60
     timeout      = 1
   }
+}
+
+# https://registry.coder.com/modules/coder/git-config
+# Sets GIT_* env + git config --global from Coder user (optional UI override for name).
+module "git-config" {
+  count    = data.coder_workspace.me.start_count
+  source   = "registry.coder.com/coder/git-config/coder"
+  version  = "1.0.35"
+  agent_id = coder_agent.main.id
+
+  # Defaults del módulo: override de nombre sí; email no.
+  allow_username_change = true
+  allow_email_change    = false
+
+  # Tras git_repo y mcp_servers (order 2).
+  coder_parameter_order = 3
 }
 
 # https://registry.coder.com/modules/coder/git-clone
@@ -125,6 +134,25 @@ module "antigravity" {
   agent_id = coder_agent.main.id
   order    = 2
   folder   = "/home/${local.linux_user}/${module.git-clone[count.index].folder_name}"
+}
+
+# https://registry.coder.com/modules/coder-labs/mcp-servers
+# Multi-select MCP Servers field on Create Workspace (Coder >= 2.24).
+module "mcp_servers" {
+  count    = data.coder_workspace.me.start_count
+  source   = "registry.coder.com/coder-labs/mcp-servers/coder"
+  version  = "0.0.1"
+
+  agent_id = coder_agent.main.id
+  clients  = ["vscode", "gemini", "cursor"]
+  default  = ["github", "playwright"]
+
+  coder_parameter_order = 2
+
+  # Sin credenciales inyectadas: los clientes pueden autenticar por su cuenta.
+  github_auth = {
+    mode = "none"
+  }
 }
 
 resource "docker_volume" "home_volume" {
