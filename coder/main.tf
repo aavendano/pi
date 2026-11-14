@@ -118,6 +118,15 @@ module "code-server" {
   slug         = "code-server"
 }
 
+module "antigravity" {
+  count    = data.coder_workspace.me.start_count
+  source   = "registry.coder.com/coder/antigravity/coder"
+  version  = "1.0.2"
+  agent_id = coder_agent.main.id
+  order    = 2
+  folder   = "/home/${local.linux_user}/${module.git-clone[count.index].folder_name}"
+}
+
 resource "docker_volume" "home_volume" {
   name = "coder-${data.coder_workspace.me.id}-home"
   lifecycle {
