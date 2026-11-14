@@ -10,7 +10,8 @@ check_python_version() {
     version=$("$python_cmd" --version 2>&1 | awk '{print $2}')
     major=$(echo "$version" | cut -d. -f1)
     minor=$(echo "$version" | cut -d. -f2)
-    if [ "$major" -eq 3 ] && [ "$minor" -ge 11 ]; then
+    # open-webui publishes wheels for 3.11–3.12 only.
+    if [ "$major" -eq 3 ] && [ "$minor" -ge 11 ] && [ "$minor" -le 12 ]; then
       echo "$python_cmd"
       return 0
     fi
@@ -19,7 +20,7 @@ check_python_version() {
 }
 
 PYTHON_CMD=""
-for cmd in python3.13 python3.12 python3.11 python3 python; do
+for cmd in python3.12 python3.11; do
   if result=$(check_python_version "$cmd"); then
     PYTHON_CMD="$result"
     echo "✅ Found suitable Python: $PYTHON_CMD ($($PYTHON_CMD --version 2>&1))"

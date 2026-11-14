@@ -50,13 +50,13 @@ resource "coder_agent" "main" {
       ssh-keyscan -t ed25519,rsa github.com >> ~/.ssh/known_hosts 2>/dev/null || true
     fi
 
-    # Open WebUI (vendored module) requires Python 3.11+ with venv.
-    if ! command -v python3.11 >/dev/null 2>&1 && ! python3 -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3,11) else 1)' 2>/dev/null; then
+    # Open WebUI needs CPython 3.11 or 3.12 (not 3.13+/system 3.14).
+    if ! command -v python3.12 >/dev/null 2>&1 && ! command -v python3.11 >/dev/null 2>&1; then
       sudo apt-get update -qq
       sudo apt-get install -y -qq software-properties-common
       sudo add-apt-repository -y ppa:deadsnakes/ppa
       sudo apt-get update -qq
-      sudo apt-get install -y -qq python3.11 python3.11-venv
+      sudo apt-get install -y -qq python3.12 python3.12-venv
     fi
   EOT
 
