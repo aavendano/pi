@@ -60,6 +60,15 @@ resource "coder_agent" "main" {
     fi
   EOT
 
+  # Keep code-server; hide VS Code Desktop / Insiders.
+  display_apps {
+    vscode                 = false
+    vscode_insiders        = false
+    web_terminal           = true
+    ssh_helper             = true
+    port_forwarding_helper = true
+  }
+
   metadata {
     display_name = "CPU Usage"
     key          = "0_cpu_usage"
@@ -136,13 +145,56 @@ module "code-server" {
   slug         = "code-server"
 }
 
-module "antigravity" {
+# https://registry.coder.com/modules/coder-labs/pi
+# Pi CLI with Mistral as default inference provider (reads MISTRAL_API_KEY from workspace env).
+module "pi" {
   count    = data.coder_workspace.me.start_count
-  source   = "registry.coder.com/coder/antigravity/coder"
-  version  = "1.0.2"
+  source   = "registry.coder.com/coder-labs/pi/coder"
+  version  = "1.0.0"
   agent_id = coder_agent.main.id
-  order    = 2
-  folder   = "/home/${local.linux_user}/${module.git-clone[count.index].folder_name}"
+  workdir  = "/home/${local.linux_user}/${module.git-clone[count.index].folder_name}"
+
+  # Node 22 + jq (requisitos del módulo) antes del npm install.
+  pre_install_script = <<-EOT
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v node >/dev/null || [ "$(node -v | sed 's/v//' | cut -d. -f1)" -lt 22 ]; then
+      curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+      sudo apt-get install -y -qq nodejs
+    fi
+    command -v jq >/dev/null || sudo apt-get install -y -qq jq
+  EOT
+
+  # Tras el install del módulo (escribe defaultProjectTrust), fijar Mistral.
+  post_install_script = <<-EOT
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SETTINGS="$HOME/.pi/agent/settings.json"
+    mkdir -p "$(dirname "$SETTINGS")"
+    if [ -f "$SETTINGS" ]; then
+      jq '.defaultProvider="mistral" | .defaultModel="mistral-medium-3.5"' \
+        "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
+    else
+      jq -n '{defaultProvider:"mistral",defaultModel:"mistral-medium-3.5",defaultProjectTrust:"always"}' \
+        > "$SETTINGS"
+    fi
+  EOT
+}
+
+resource "coder_app" "pi" {
+  count        = data.coder_workspace.me.start_count
+  agent_id     = coder_agent.main.id
+  slug         = "pi"
+  display_name = "Pi"
+  icon         = "/icon/pi.svg"
+  open_in      = "slim-window"
+  order        = 2
+  command      = <<-EOT
+    #!/usr/bin/env bash
+    set -e
+    cd "/home/${local.linux_user}/${module.git-clone[count.index].folder_name}"
+    pi --continue
+  EOT
 }
 
 # https://registry.coder.com/modules/coder-labs/mcp-servers
@@ -153,7 +205,7 @@ module "mcp_servers" {
   version  = "0.0.1"
 
   agent_id = coder_agent.main.id
-  clients  = ["vscode", "gemini", "cursor"]
+  clients  = ["vscode", "cursor"]
   default  = ["github", "playwright"]
 
   coder_parameter_order = 2
