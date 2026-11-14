@@ -155,14 +155,31 @@ module "pi" {
   workdir  = "/home/${local.linux_user}/${module.git-clone[count.index].folder_name}"
 
   # Node 22 + jq (requisitos del módulo) antes del npm install.
+  # Espera locks de apt: startup_script / open-webui también usan apt en paralelo.
   pre_install_script = <<-EOT
     #!/usr/bin/env bash
     set -euo pipefail
+    export DEBIAN_FRONTEND=noninteractive
+    wait_apt() {
+      local i=0
+      while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 \
+        || sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 \
+        || sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+        sleep 2
+        i=$((i + 1))
+        [ "$i" -lt 180 ] || { echo "Timed out waiting for apt locks"; exit 1; }
+      done
+    }
     if ! command -v node >/dev/null || [ "$(node -v | sed 's/v//' | cut -d. -f1)" -lt 22 ]; then
+      wait_apt
       curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+      wait_apt
       sudo apt-get install -y -qq nodejs
     fi
-    command -v jq >/dev/null || sudo apt-get install -y -qq jq
+    if ! command -v jq >/dev/null; then
+      wait_apt
+      sudo apt-get install -y -qq jq
+    fi
   EOT
 
   # Tras el install del módulo (escribe defaultProjectTrust), fijar Mistral.
