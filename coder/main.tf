@@ -12,7 +12,6 @@ terraform {
 locals {
   # Linux user inside codercom/example-base:ubuntu
   linux_user = "coder"
-  repo_url   = "git@github.com:aavendano/pi.git"
 }
 
 provider "docker" {}
@@ -20,6 +19,18 @@ provider "docker" {}
 data "coder_provisioner" "me" {}
 data "coder_workspace" "me" {}
 data "coder_workspace_owner" "me" {}
+
+# Shown on Create / Update Workspace in the Coder UI.
+data "coder_parameter" "git_repo" {
+  name         = "git_repo"
+  display_name = "Git repository"
+  description  = "URL del repo a clonar (HTTPS o SSH). Soporta /tree/branch."
+  type         = "string"
+  form_type    = "input"
+  mutable      = true
+  default      = "git@github.com:aavendano/pi.git"
+  icon         = "/icon/git.svg"
+}
 
 resource "coder_agent" "main" {
   arch = data.coder_provisioner.me.arch
@@ -73,13 +84,13 @@ resource "coder_agent" "main" {
 }
 
 # https://registry.coder.com/modules/coder/git-clone
-# Clones git@github.com:aavendano/pi.git (falls back to HTTPS if SSH is unavailable).
+# Clones the URL from the git_repo workspace parameter (falls back to HTTPS if SSH is unavailable).
 module "git-clone" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/git-clone/coder"
   version  = "2.0.5"
   agent_id = coder_agent.main.id
-  url      = local.repo_url
+  url      = data.coder_parameter.git_repo.value
 
   pre_clone_script = <<-EOT
     #!/usr/bin/env bash
@@ -93,7 +104,7 @@ module "git-clone" {
 }
 
 # https://registry.coder.com/modules/coder/code-server
-# Opens the cloned pi repo so AGENTS.md / .pi config load from that checkout.
+# Opens the cloned repo folder so project config (e.g. AGENTS.md / .pi) loads from that checkout.
 module "code-server" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/coder/code-server/coder"

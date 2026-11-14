@@ -2,8 +2,10 @@
 
 Source of truth for the Coder Docker template used at `coder.avendano.site`.
 
-- Clones `git@github.com:aavendano/pi.git` into `~/pi` on workspace start.
-- Opens that checkout in code-server so project config (`.pi/`, `AGENTS.md`) loads from this repo.
+- On Create / Update Workspace, the UI asks for **Git repository** (`git_repo`).
+- Default: `git@github.com:aavendano/pi.git`.
+- Clones that URL into `~/<repo-name>` on workspace start (HTTPS fallback if no SSH key).
+- Opens that checkout in code-server so project config (`.pi/`, `AGENTS.md`) loads from the clone.
 
 Push to Coder:
 
