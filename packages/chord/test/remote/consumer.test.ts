@@ -1076,11 +1076,13 @@ forEachCodec(() => {
 				const value = new DeflatedPart(nodeCompression.deflate(json));
 				peer.send({ kind: "event", events: [{ hold, member: PLAYER.events.paddle!, at: 1, value }] });
 				for (let turn = 0; turn < 5; turn++) await transported();
+				expect(seen).toEqual([]);
 				expect(eventAcks(peer)).toEqual([]);
 				gate.resolve();
-				for (let turn = 0; turn < 5 && seen.length === 0; turn++) await transported();
+				// The web inflate runs off-thread and settles on its own schedule, so wait on the condition in
+				// real time rather than a fixed number of link turns.
+				await vi.waitFor(() => expect(seen).toEqual([1]), { timeout: 5_000, interval: 10 });
 				await transported();
-				expect(seen).toEqual([1]);
 				expect(eventAcks(peer)).toEqual([1]);
 			} finally {
 				vi.unstubAllGlobals();
