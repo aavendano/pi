@@ -164,16 +164,34 @@ module "mcp_servers" {
   }
 }
 
-# Vendored coder-labs/open-webui (path-based; registry hardcodes subdomain=true).
-module "open-webui" {
-  count    = data.coder_workspace.me.start_count
-  source   = "./modules/open-webui"
-  agent_id = coder_agent.main.id
+# Vendored from coder-labs/open-webui v1.0.0 (see modules/open-webui).
+# Inlined at template root so Coder MCP tar upload works (no nested dirs).
+# Path-based: subdomain=false (registry hardcodes true).
+resource "coder_script" "open_webui" {
+  count        = data.coder_workspace.me.start_count
+  agent_id     = coder_agent.main.id
+  display_name = "open-webui"
+  icon         = "/icon/openwebui.svg"
+  run_on_start = true
+  script = templatefile("${path.module}/open-webui-run.sh", {
+    HTTP_SERVER_LOG_PATH = "/tmp/open-webui.log"
+    HTTP_SERVER_PORT     = 7800
+    VERSION              = "latest"
+    DATA_DIR             = ".open-webui"
+    OPENAI_API_KEY       = ""
+  })
+}
 
-  order     = 3
-  share     = "owner"
-  subdomain = false
-  # openai_api_key vacío: configurar providers en la UI
+resource "coder_app" "open_webui" {
+  count        = data.coder_workspace.me.start_count
+  agent_id     = coder_agent.main.id
+  slug         = "open-webui"
+  display_name = "Open WebUI"
+  url          = "http://localhost:7800"
+  icon         = "/icon/openwebui.svg"
+  subdomain    = false
+  share        = "owner"
+  order        = 3
 }
 
 resource "docker_volume" "home_volume" {
