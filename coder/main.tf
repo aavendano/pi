@@ -127,6 +127,25 @@ module "antigravity" {
   folder   = "/home/${local.linux_user}/${module.git-clone[count.index].folder_name}"
 }
 
+# https://registry.coder.com/modules/coder-labs/mcp-servers
+# Multi-select MCP Servers field on Create Workspace (Coder >= 2.24).
+module "mcp_servers" {
+  count    = data.coder_workspace.me.start_count
+  source   = "registry.coder.com/coder-labs/mcp-servers/coder"
+  version  = "0.0.1"
+
+  agent_id = coder_agent.main.id
+  clients  = ["vscode", "gemini", "cursor"]
+  default  = ["github", "playwright"]
+
+  coder_parameter_order = 2
+
+  # Sin credenciales inyectadas: los clientes pueden autenticar por su cuenta.
+  github_auth = {
+    mode = "none"
+  }
+}
+
 resource "docker_volume" "home_volume" {
   name = "coder-${data.coder_workspace.me.id}-home"
   lifecycle {
