@@ -4,10 +4,26 @@ set -eu
 
 printf '\033[0;1mInstalling Open WebUI %s...\n\n' "${VERSION}"
 
-# Install here (not only in agent startup_script): coder_script runs in parallel
-# with startup_script, so Python may not exist yet when this script starts.
+# coder_script runs in parallel with startup_script (which installs Python).
+# Wait for that install; only apt ourselves after locks are free if still missing.
+if ! command -v python3.12 >/dev/null 2>&1 && ! command -v python3.11 >/dev/null 2>&1; then
+  echo "Waiting for Python 3.11/3.12 from agent startup_script..."
+  i=0
+  while [ "$i" -lt 180 ]; do
+    if command -v python3.12 >/dev/null 2>&1 || command -v python3.11 >/dev/null 2>&1; then
+      break
+    fi
+    sleep 2
+    i=$((i + 1))
+  done
+fi
 if ! command -v python3.12 >/dev/null 2>&1 && ! command -v python3.11 >/dev/null 2>&1; then
   echo "Installing Python 3.12 (required by Open WebUI)..."
+  while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 \
+    || sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 \
+    || sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+    sleep 2
+  done
   sudo apt-get update -qq
   sudo apt-get install -y -qq software-properties-common
   sudo add-apt-repository -y ppa:deadsnakes/ppa
