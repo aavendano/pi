@@ -4,6 +4,17 @@ set -eu
 
 printf '\033[0;1mInstalling Open WebUI %s...\n\n' "${VERSION}"
 
+# Install here (not only in agent startup_script): coder_script runs in parallel
+# with startup_script, so Python may not exist yet when this script starts.
+if ! command -v python3.12 >/dev/null 2>&1 && ! command -v python3.11 >/dev/null 2>&1; then
+  echo "Installing Python 3.12 (required by Open WebUI)..."
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq software-properties-common
+  sudo add-apt-repository -y ppa:deadsnakes/ppa
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq python3.12 python3.12-venv
+fi
+
 check_python_version() {
   python_cmd="$1"
   if command -v "$python_cmd" > /dev/null 2>&1; then
